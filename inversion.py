@@ -15,6 +15,8 @@ from tqdm import tqdm
 from overlappogram.error import InvalidInversionModeError, NoWeightsWarnings
 from overlappogram.response import prepare_response_function,prepare_emocci_filter
 
+
+import matplotlib.pyplot as plt
 __all__ = ["Inverter"]
 
 
@@ -82,6 +84,7 @@ class Inverter:
             
             self.em_mask_whole, self.em_temps = em_mask #data, logt
 
+
             logt_response = self._response_meta['temperatures']['logt'] 
             logt_em_temps=np.array(self.em_temps['logt'])#turn to np
             
@@ -90,10 +93,11 @@ class Inverter:
 
             self.em_mask_sub=self.em_mask_whole[em_list] #get temp bins needed
 
-            #do calculations
+            
             field_angle_list = np.array([a for (_, a) in response_cube.meta['field_angles']])
-
+            
             self.reshaped_mask = prepare_emocci_filter(np.squeeze(np.array(self.em_mask_sub)),em_list , field_angle_list, self._field_angle_range,  np.array(self._solution_fov_width))
+           
             ########################
 
         self._progress_bar = None  # initialized in invert call
@@ -116,17 +120,22 @@ class Inverter:
         image_row = self._overlappogram.data[row_index, :]
         masked_response_function = self._response_function.copy()
        
+       
 
         ######apply response function mask - UPDATE ##########
         if self.em_mask is not None:
             
-            flatMask= self.reshaped_mask[row_index,:].flatten()
             flatrsp=masked_response_function
-        
-            result=flatrsp.transpose()*flatMask[:,np.newaxis]
-            #print('unique values',np.unique(flatMask))
-            masked_response_function[row_index]= result[:,row_index]
             
+            #get mask, will mask different field angles
+            flatMask= self.reshaped_mask[row_index].flatten()
+            
+            #apply mask to colums of corresponding columns
+            result=flatrsp*flatMask
+
+            masked_response_function= result #new mask
+            
+        
         #### UPDATE END#################################
         if self._overlappogram.mask is not None:
             mask_row = self._overlappogram.mask[row_index, :]
