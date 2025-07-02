@@ -124,7 +124,7 @@ class Inverter:
             flatrsp=masked_response_function
         
             result=flatrsp.transpose()*flatMask[:,np.newaxis]
-            print('unique values',np.unique(flatMask))
+            #print('unique values',np.unique(flatMask))
             masked_response_function[row_index]= result[:,row_index]
             
         #### UPDATE END#################################
