@@ -124,12 +124,14 @@ class Inverter:
             flatrsp=masked_response_function
         
             result=flatrsp.transpose()*flatMask[:,np.newaxis]
-            
+            print('unique values',np.unique(flatMask))
             masked_response_function[row_index]= result[:,row_index]
             
         #### UPDATE END#################################
         if self._overlappogram.mask is not None:
             mask_row = self._overlappogram.mask[row_index, :]
+            
+            
             mask_pixels = np.where(mask_row == 0)
             if len(mask_pixels) > 0:
                 image_row[mask_pixels] = 0

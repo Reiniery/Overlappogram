@@ -178,10 +178,11 @@ def prepare_emocci_filter(em_filter, dep_index_list, field_angle_list, field_ang
            
 
             result = bin_mask[:, slit_num - half_fov: slit_num + half_fov + 1].sum(axis=1)
+            result= np.where((result ==2 ) | (result ==3), 1,0)
             slit_rows.append(result)
 
         bin_grouped = np.stack(slit_rows, axis=1) 
         grouped_mask_rows.append(bin_grouped)
-
+        
     final_mask = np.concatenate(grouped_mask_rows, axis=1)  
     return final_mask
