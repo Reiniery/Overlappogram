@@ -13,8 +13,7 @@ from sklearn.linear_model import ElasticNet
 from tqdm import tqdm
 
 from overlappogram.error import InvalidInversionModeError, NoWeightsWarnings
-from overlappogram.response import prepare_response_function,prepare_emocci_filter
-
+from overlappogram.response import prepare_response_function
 
 import matplotlib.pyplot as plt
 __all__ = ["Inverter"]
@@ -76,29 +75,27 @@ class Inverter:
                                                            dtype=[('index', '>i2'), ('logt', '>f4')])
             
         
-         ##### REI EDIT
+######################## REI EDIT
          #check if mask data is recieved
         self.em_mask =em_mask
         if self.em_mask is not None:
             print('Applying Mask')
+    
+            self.em_cube,self.em_temps = em_mask 
+            self.em_cube= self.em_cube.transpose(0,2,1)
+            #Prepare like to look like repsonse function
+            self.em_NDcube = NDCube(self.em_cube,wcs=response_cube.wcs, meta=response_cube.meta)
+            self._em_mask,_,_= prepare_response_function(
+                self.em_NDcube,
+                fov_width=solution_fov_width,
+                field_angle_range=field_angle_range,
+                response_dependency_list=response_dependency_list,
+            )
             
-            self.em_mask_whole, self.em_temps = em_mask #data, logt
-
-
-            logt_response = self._response_meta['temperatures']['logt'] 
-            logt_em_temps=np.array(self.em_temps['logt'])#turn to np
-            
-            #match response function
-            em_list= [[i for i, t in enumerate(logt_em_temps) if np.round(t,1) in logt_response]]
-
-            self.em_mask_sub=self.em_mask_whole[em_list] #get temp bins needed
-
-            
-            field_angle_list = np.array([a for (_, a) in response_cube.meta['field_angles']])
-            
-            self.reshaped_mask = prepare_emocci_filter(np.squeeze(np.array(self.em_mask_sub)),em_list , field_angle_list, self._field_angle_range,  np.array(self._solution_fov_width))
+            #Change Values greater than z to 1's
+            self._em_mask= np.where((self._em_mask >2.5), 1,0) 
            
-            ########################
+##########################################
 
         self._progress_bar = None  # initialized in invert call
 
@@ -122,25 +119,21 @@ class Inverter:
        
        
 
-        ######apply response function mask - UPDATE ##########
+#######################apply response function mask - UPDATE ##########
         if self.em_mask is not None:
             
             flatrsp=masked_response_function
-            
-            #get mask, will mask different field angles
-            flatMask= self.reshaped_mask[row_index].flatten()
-            
-            #apply mask to colums of corresponding columns
+            flatMask= self._em_mask[row_index].flatten()
+ 
             result=flatrsp*flatMask
 
             masked_response_function= result #new mask
             
         
-        #### UPDATE END#################################
+######################### UPDATE END#################################
+
         if self._overlappogram.mask is not None:
             mask_row = self._overlappogram.mask[row_index, :]
-            
-            
             mask_pixels = np.where(mask_row == 0)
             if len(mask_pixels) > 0:
                 image_row[mask_pixels] = 0
