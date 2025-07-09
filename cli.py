@@ -23,8 +23,13 @@ from overlappogram.io import load_response_cube, save_prediction,load_em_filter 
 from overlappogram.spectral import create_spectrally_pure_images  # noqa: E402
 
 
+
+
+
+
 @click.command()
 @click.argument("config")
+
 def unfold(config):
     """Unfold an overlappogram given a configuration toml file.
 
@@ -95,6 +100,7 @@ def unfold(config):
                              f"{config['output']['prefix']}_prediction_{postfix}.fits"),
                 overwrite=config["output"]["overwrite"],
             )
+            
 
             scores_path = os.path.join(config["output"]["directory"],
                                        f"{config['output']['prefix']}_scores_{postfix}.txt")

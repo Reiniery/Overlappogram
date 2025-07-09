@@ -30,8 +30,8 @@ def load_em_filter(em_mask_path:str):
     if em_mask_path is None:
         data=None
     else:
-        with fits.open(em_mask_path) as em_mask_hdul:
-            data = em_mask_hdul[0].data, em_mask_hdul[1].data #image data, logt's 
+            data = fits.open(em_mask_path) 
+            print('Data type',type(data))
         
     return data
         
