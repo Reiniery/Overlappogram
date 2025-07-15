@@ -81,27 +81,32 @@ class Inverter:
         self.em_mask =em_mask
         if self.em_mask is not None:
             print('Applying Mask')
-            
            #--------------Prepare em filter 
-            self.em_mask_whole=self.em_mask[0].data
-            self.em_temps=self.em_mask[1].data
+            self.em_mask_whole=self.em_mask['filter']
             
-            #get temp biins
-            logt_response = self._response_meta['temperatures']['logt'] 
-            logt_em_temps=np.array(self.em_temps['logt'])#turn to np
-            em_list= [i for i, t in enumerate(logt_em_temps) if np.round(t,2) in logt_response]
-           
+            #self.em_mask_whole=self.em_mask['em_filter']
+            
+            if 'logt' in self.em_mask:
+                #get corresponding temp bins
+                self.em_temps=self.em_mask['logt']
+                logt_response = self._response_meta['temperatures']['logt'] 
+                logt_em_temps=np.array(self.em_temps)#turn to np
+                em_list= [i for i, t in enumerate(logt_em_temps) if np.round(t,2) in logt_response]
+                self.em_mask_sub=self.em_mask_whole[em_list] #get temp bins needed
+            else:
+                #must be manually changed, only for solnfilter_emlocci.sav
+                from scipy import ndimage
+                self.em_mask_sub = self.em_mask_whole[0:-2,:,:] 
+                scale_factors = (12/12, 1024/1024, 635/645) #percentages for each
+                self.em_mask_sub =  ndimage.zoom(np.array(self.em_mask_sub), scale_factors, order=1)
             #get field angles
-            field_angle_list = np.array([a for (_, a) in response_cube.meta['field_angles']])
-            
-            
-            self.em_mask_sub=self.em_mask_whole[em_list] #get temp bins needed
-          
-            self._em_mask,_,_ = prepare_emocci_filter(np.array(self.em_mask_sub),em_list , field_angle_list, self._field_angle_range,  np.array(self._solution_fov_width))
-            
-            #convert to binary mask
-            self._em_mask= np.where(self._em_mask >0.5, 1,0)
-           
+            field_angle_list = np.array([a for (_, a) in response_cube.meta['field_angles']])    
+            self._em_mask,_,_ = prepare_emocci_filter(self.em_mask_sub,self._response_meta['temperatures']['logt']  , field_angle_list, self._field_angle_range,  np.array(self._solution_fov_width))
+
+
+            #convert to binary mask - if prepare_emocci_filter has .sum(), needed 
+            if np.any(self._em_mask >0.5):
+                self._em_mask= np.where(self._em_mask>0.5, 1,0)
 ##########################################
 
         self._progress_bar = None  # initialized in invert call
@@ -116,28 +121,16 @@ class Inverter:
                 self._row_scores is None,
             ]
         )
- 
-
     def _invert_image_row(self, row_index, chunk_index):
 
         model = self._models[chunk_index]
         image_row = self._overlappogram.data[row_index, :]
         masked_response_function = self._response_function.copy()
-      
 #######################apply response function mask - UPDATE ##########
         if self.em_mask is not None:
-            
-            #flatrsp=masked_response_function
-            
-        
             mask_row= self._em_mask[row_index,:].flatten()
-            
             masked_response_function*= mask_row
-         
-            
-     
 ######################### UPDATE END#################################
-
         if self._overlappogram.mask is not None:
             mask_row = self._overlappogram.mask[row_index, :]
             mask_pixels = np.where(mask_row == 0)

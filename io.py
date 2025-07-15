@@ -26,11 +26,13 @@ RESPONSE_HEADER_KEYS = ['DATE',
 ##########REI UPDATE
        
 #load mask
+
+from scipy.io import readsav
 def load_em_filter(em_mask_path:str):
     if em_mask_path is None:
         data=None
     else:
-            data = fits.open(em_mask_path) 
+            data = readsav(em_mask_path) 
             print('Data type',type(data))
         
     return data

@@ -111,7 +111,8 @@ def prepare_response_function(
                             index,
                             slit_num - (half_fov[0] - 1) : slit_num + (half_fov[0] - 1) + 1,
                             :,
-                        ].sum(axis=0)
+                        ].mean(axis=0) # Changed to Mean instead of Sum
+                        #.mean(axis=1)
                         + (response_cube.data[index, slit_num - half_fov[0], :] * 0.5)
                         + (response_cube.data[index, slit_num + half_fov[0], :] * 0.5)
                     )
@@ -120,24 +121,17 @@ def prepare_response_function(
                         index,
                         slit_num - half_fov[0] : slit_num + half_fov[0] + 1,
                         :,
-                    ].sum(axis=0)
+                    ].mean(axis=0) #.sum)(axis=0)
             slit_count += 1
         response_count += 1
        
     return response_function.transpose(), num_slits, num_deps
 
+
 def prepare_emocci_filter(em_filter, dep_index_list, field_angle_list, field_angle_range, fov_width):
-    #Reshaping
-
-    num_deps,rsp_func_width,num_field_angles=em_filter.shape
-    
-
+    num_deps,rsp_func_width,num_field_angles= em_filter.shape
     num_bins = len(dep_index_list)
     half_fov = divmod(fov_width, 2)
-    
-
- 
-
     # Step 1: Get matching slit indices using same logic as response function
     angle_index_list = []
     for angle in field_angle_range:
@@ -180,10 +174,12 @@ def prepare_emocci_filter(em_filter, dep_index_list, field_angle_list, field_ang
             if fov_width == 1:
                 em_mask[(num_deps * slit_count) + response_count, :] = bin_mask[:,slit_num]
             else:
-                result = bin_mask[:, slit_num - half_fov[0]: slit_num + half_fov[0] ].sum(axis=1)
+                result = bin_mask[:, slit_num - half_fov[0]: slit_num + half_fov[0] ].mean(axis=1) #.sum(axis=1)
+                print('result',result.shape)
                 em_mask[(num_deps * slit_count) + response_count, :] = result
-
+        
             slit_count+=1
+          
         response_count+=1
         
     return em_mask.transpose(),num_slits, num_deps
