@@ -6,7 +6,7 @@ in TOML file, instead of response ='', use lowfip='' and highfip=''
 
 ## Example 
 <br/>
-[paths]
+[paths]<br/>
 overlappogram = "flight.fits"<br/>
 weights = "weights.fits"<br/>
 lowfip='lowfip_response.fits'<br/>
