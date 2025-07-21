@@ -2,7 +2,7 @@
 Can do Low Fip High Fip Response functions.
 make_spectral= false to use LOWFIP, highsfip response functions
 
-in TOML file, instead of response ='', use lowfip='' and highfip=''
+in TOML file, instead of response ='file name', use lowfip='file name' and highfip='file name'
 
 ## Example 
 <br/>
