@@ -61,13 +61,26 @@ class Inverter:
         self._n_iter: np.ndarray | None = None
         
         self._thread_count_lock = Lock()
-       
+    #    ###updated
+    #     if response_cube.data.ndim > 3: # RSP Funcs, FA, T, WVL
+    #         self.low_fip_response_data = NDCube(response_cube.data[0],wcs=response_cube.wcs, meta=response_cube.meta)
+    #         self.high_fip_response_data = NDCube(response_cube.data[1],wcs=response_cube.wcs, meta=response_cube.meta)
+
+            
+
+     
         self._response_function, self._num_slits, self._num_deps = prepare_response_function(
             response_cube,
             fov_width=solution_fov_width,
             field_angle_range=field_angle_range,
             response_dependency_list=response_dependency_list,
         )
+
+        self.lowfip_highfip_check = False
+        if response_cube.data.ndim > 3: 
+            self.lowfip_highfip_check = True
+
+
         self._response_meta = response_cube.meta
 
         if response_dependency_list is not None:
@@ -130,6 +143,7 @@ class Inverter:
         if self.em_mask is not None:
             mask_row= self._em_mask[row_index,:].flatten()
             masked_response_function*= mask_row
+
 ######################### UPDATE END#################################
         if self._overlappogram.mask is not None:
             mask_row = self._overlappogram.mask[row_index, :]
@@ -147,7 +161,7 @@ class Inverter:
         try:
             model.fit(masked_response_function, image_row, sample_weight=sample_weights_row)
             data_out = model.predict(masked_response_function)
-            em = model.coef_
+            em = model.coef_    
             score_data = model.score(masked_response_function, image_row)
             n_iter = model.n_iter_
         except ConvergenceWarning:
@@ -203,12 +217,20 @@ class Inverter:
     def _collect_results(self, mode_switch_thread_count, model_config, alpha, rho):
         for future in concurrent.futures.as_completed(self.futures):
             row_index, em, data_out, score_data, n_iter = future.result()
-            for slit_num in range(self._num_slits):
-                if self._smooth_over == "dependence":
-                    slit_em = em[slit_num * self._num_deps : (slit_num + 1) * self._num_deps]
-                else:
-                    slit_em = em[slit_num :: self._num_slits]
-                self._em_data[row_index, slit_num, :] = slit_em
+
+            #LOW FIP HIGH FIP CHECK-------- by Rei 
+            if em.shape[0] > self._num_deps * self._num_slits:
+                em = em.reshape(2, self._num_deps, self._num_slits) #(A,T,F)
+                em=em.transpose(2,1,0) # (F,T,A)
+                self._em_data[row_index] = em
+            #-------------------------------
+            else:
+                for slit_num in range(self._num_slits):
+                    if self._smooth_over == "dependence":
+                        slit_em = em[slit_num * self._num_deps : (slit_num + 1) * self._num_deps]
+                    else:
+                        slit_em = em[slit_num :: self._num_slits]
+                    self._em_data[row_index, slit_num, :] = slit_em           
             self._inversion_prediction[row_index, :] = data_out
             self._row_scores[row_index] = score_data
             self._n_iter[row_index] = n_iter
@@ -288,7 +310,7 @@ class Inverter:
 
         # correct for exposure time
         try:
-            image_exposure_time = self._overlappogram.meta["IMG_EXP"]
+            image_exposure_time = self._overlappogram.meta["EXP_TIME"]
         except KeyError:
             image_exposure_time = 1.0
         self._overlappogram /= image_exposure_time
@@ -297,7 +319,13 @@ class Inverter:
 
         # initialize all results cubes
         self._overlappogram_height, self._overlappogram_width = self._overlappogram.data.shape
-        self._em_data = np.zeros((self._overlappogram_height, self._num_slits, self._num_deps), dtype=np.float32)
+        
+        #low fip high fip check
+        if self.lowfip_highfip_check:
+            self._em_data = np.zeros((self._overlappogram_height, self._num_slits,self._num_deps,2), dtype=np.float32)
+        else:
+            self._em_data = np.zeros((self._overlappogram_height, self._num_slits,self._num_deps), dtype=np.float32)
+
         self._inversion_prediction = np.zeros((self._overlappogram_height, self._overlappogram_width), dtype=np.float32)
         self._row_scores = np.zeros((self._overlappogram_height, 1), dtype=np.float32)
         self._n_iter = np.zeros((self._overlappogram_height, 1), dtype=np.int32)
@@ -343,11 +371,19 @@ class Inverter:
         self._progress_bar.close()
 
         out_wcs = wcs.WCS(naxis=2)
-
-        return (
-            NDCube(data=np.transpose(self._em_data, (2, 0, 1)), wcs=out_wcs, meta=self._response_meta),
+        if self._em_data.ndim > 3:
+            return (
+            NDCube(data=np.transpose(self._em_data, (2, 0,3,1)), wcs=out_wcs, meta=self._response_meta),
             NDCube(data=self._inversion_prediction, wcs=out_wcs, meta=self._response_meta),
             self._row_scores,
             self._unconverged_rows,
             self._n_iter
-        )
+        ) 
+        else:
+            return (
+                NDCube(data=np.transpose(self._em_data, (2, 0, 1)), wcs=out_wcs, meta=self._response_meta),
+                NDCube(data=self._inversion_prediction, wcs=out_wcs, meta=self._response_meta),
+                self._row_scores,
+                self._unconverged_rows,
+                self._n_iter
+            )

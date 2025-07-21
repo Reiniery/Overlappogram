@@ -9,9 +9,13 @@ __all__ = ["prepare_response_function"]
 def prepare_response_function(
     response_cube: NDCube, field_angle_range=None, response_dependency_list=None, fov_width=2
 ) -> (np.ndarray, float, float):
-    # from Dyana Beabout
-
-    num_dep, num_field_angles, rsp_func_width = np.shape(response_cube.data)
+   
+    
+    if response_cube.data.ndim ==4:
+        num_dep, num_field_angles, A, rsp_func_width = np.shape(response_cube.data)
+    else: 
+        # from Dyana Beabout
+        num_dep, num_field_angles, rsp_func_width = np.shape(response_cube.data)
 
     dependency_list = [t for (_, t) in response_cube.meta["temperatures"]]
     dependency_list = np.round(dependency_list, decimals=1)
@@ -90,44 +94,96 @@ def prepare_response_function(
     field_angle_range_list = field_angle_list[field_angle_range_index_list]
 
     response_count = 0
-    response_function = np.zeros((num_deps * num_slits, rsp_func_width), dtype=np.float32)
 
-    for index in dep_index_list:
-        # Smooth over dependence.
-        slit_count = 0
+    # Low Fip and High Fip Changes - Rei
+    if response_cube.data.ndim==4:
+        low_fip_response=response_cube.data[:,:,0,:]
+        high_fip_response=response_cube.data[:,:,1,:]
+
+        response_function = np.zeros((num_deps * num_slits * A  , rsp_func_width), dtype=np.float32) #(T*F*A, E)
         
-        for slit_num in range(
-            center_slit[0] - (half_slits[0] * fov_width),
+        for dep_idx, index in enumerate(dep_index_list):
+            slit_count = 0
+            for slit_idx,slit_num in enumerate(range(
+                    center_slit[0] - (half_slits[0] * fov_width),
+                    center_slit[0] + ((half_slits[0] * fov_width) + 1),
+                    fov_width,
+                )): 
+                    num_select_slits= len(range(center_slit[0] - (half_slits[0] * fov_width),
             center_slit[0] + ((half_slits[0] * fov_width) + 1),
-            fov_width,
-        ):  
-            if fov_width == 1:
-                response_function[(num_deps * slit_count) + response_count, :] = response_cube.data[index, slit_num, :]
-            else:
-                # Check if even FOV.
-                if half_fov[1] == 0:
-                    response_function[(num_deps * slit_count) + response_count, :] = (
-                        response_cube.data[
-                            index,
-                            slit_num - (half_fov[0] - 1) : slit_num + (half_fov[0] - 1) + 1,
-                            :,
-                        ].mean(axis=0) # Changed to Mean instead of Sum
-                        #.mean(axis=1)
-                        + (response_cube.data[index, slit_num - half_fov[0], :] * 0.5)
-                        + (response_cube.data[index, slit_num + half_fov[0], :] * 0.5)
-                    )
+            fov_width))
+                    out_idx=dep_idx * num_select_slits +slit_idx
+                    out_idx_high = out_idx +num_deps * num_select_slits
+                    
+                    if fov_width == 1:
+                        response_function[(num_deps * slit_count) + response_count, :] = response_cube.data[index, slit_num, :] #need to change
+                    else:
+                        # Check if even FOV.
+                        if half_fov[1] == 0: #need to change
+                            response_function[(num_deps * slit_count) + response_count, :] = (
+                                response_cube.data[
+                                    index,
+                                    slit_num - (half_fov[0] - 1) : slit_num + (half_fov[0] - 1) + 1,
+                                    :,
+                                ].mean(axis=0) # Changed to Mean instead of Sum
+                                #.mean(axis=1)
+                                + (response_cube.data[index, slit_num - half_fov[0], :] * 0.5)
+                                + (response_cube.data[index, slit_num + half_fov[0], :] * 0.5)
+                            )
+                        else:
+                            response_function[out_idx, :] = low_fip_response[
+                                index,
+                                slit_num - half_fov[0] : slit_num + half_fov[0] + 1,
+                                :,
+                            ].mean(axis=0) #.sum)(axis=0)
+                            response_function[out_idx_high , :] = high_fip_response[
+                                index,
+                                slit_num - half_fov[0] : slit_num + half_fov[0] + 1,
+                                :,
+                            ].mean(axis=0) #.sum)(axis=0)
+                            
+                        slit_count += 1
+                    response_count += 1
+    else:
+        response_function = np.zeros((num_deps * num_slits, rsp_func_width), dtype=np.float32)
+        for index in dep_index_list:
+            # Smooth over dependence.
+            slit_count = 0
+            for slit_num in range(
+                center_slit[0] - (half_slits[0] * fov_width),
+                center_slit[0] + ((half_slits[0] * fov_width) + 1),
+                fov_width,
+            ):  
+                if fov_width == 1:
+                    response_function[(num_deps * slit_count) + response_count, :] = response_cube.data[index, slit_num, :]
                 else:
-                    response_function[(num_deps * slit_count) + response_count, :] = response_cube.data[
-                        index,
-                        slit_num - half_fov[0] : slit_num + half_fov[0] + 1,
-                        :,
-                    ].mean(axis=0) #.sum)(axis=0)
-            slit_count += 1
-        response_count += 1
-       
+                    # Check if even FOV.
+                    if half_fov[1] == 0:
+                        response_function[(num_deps * slit_count) + response_count, :] = (
+                            response_cube.data[
+                                index,
+                                slit_num - (half_fov[0] - 1) : slit_num + (half_fov[0] - 1) + 1,
+                                :,
+                            ].mean(axis=0) # Changed to Mean instead of Sum
+                            #.mean(axis=1)
+                            + (response_cube.data[index, slit_num - half_fov[0], :] * 0.5)
+                            + (response_cube.data[index, slit_num + half_fov[0], :] * 0.5)
+                        )
+                    else:
+                        
+                        response_function[(num_deps * slit_count) + response_count, :] = response_cube.data[
+                            index,
+                            slit_num - half_fov[0] : slit_num + half_fov[0] + 1,
+                            :,
+                        ].mean(axis=0) #.sum)(axis=0)
+                        
+                slit_count += 1
+            response_count += 1
+     
+   
     return response_function.transpose(), num_slits, num_deps
 
-
+#needs update for lowfip high fip
 def prepare_emocci_filter(em_filter, dep_index_list, field_angle_list, field_angle_range, fov_width):
     num_deps,rsp_func_width,num_field_angles= em_filter.shape
     num_bins = len(dep_index_list)
@@ -175,11 +231,10 @@ def prepare_emocci_filter(em_filter, dep_index_list, field_angle_list, field_ang
                 em_mask[(num_deps * slit_count) + response_count, :] = bin_mask[:,slit_num]
             else:
                 result = bin_mask[:, slit_num - half_fov[0]: slit_num + half_fov[0] ].mean(axis=1) #.sum(axis=1)
-                print('result',result.shape)
                 em_mask[(num_deps * slit_count) + response_count, :] = result
         
             slit_count+=1
           
         response_count+=1
-        
+    
     return em_mask.transpose(),num_slits, num_deps

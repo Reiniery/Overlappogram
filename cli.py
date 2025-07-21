@@ -44,9 +44,28 @@ def unfold(config):
     overlappogram = load_overlappogram(config["paths"]["overlappogram"],
                                        config["paths"]["weights"] if 'weights' in config['paths'] else None,
                                        config["paths"]["mask"] if 'mask' in config['paths'] else None)
-    response_cube = load_response_cube(config["paths"]["response"])
+    if 'lowfip' and 'highfip' not in config['paths']:
+        response_cube = load_response_cube(config["paths"]["response"] )
+    else:
+        low_fip_response_cube=load_response_cube(config["paths"]["lowfip"])
+        high_fip_response_cube=load_response_cube(config["paths"]["highfip"])
+
+        if low_fip_response_cube and high_fip_response_cube is not None:
+            from ndcube import NDCube
+            import numpy as np
+            new_response_data=np.stack([low_fip_response_cube.data,high_fip_response_cube.data], axis=2)
+            response_cube=NDCube(new_response_data, wcs=low_fip_response_cube.wcs, meta=low_fip_response_cube.meta)
+    
+    
+
+   
 
     em_mask= load_em_filter(config["paths"]["em_mask"] if 'em_mask' in config['paths'] else None) #rei
+
+#rei adding 
+    
+        
+
 
     inversion = Inverter(
         response_cube,
