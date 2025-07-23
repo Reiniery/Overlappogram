@@ -53,7 +53,14 @@ def create_spectrally_pure_images(image_list: list[NDCube],
             for index in range(len(image_list)):
                 # Create spectrally pure data cube.
                 for em_data in image_list:
+                   
+                    
                     em_data_cube = em_data.data.astype(np.float64)
+                    #Update - rei
+                    if em_data_cube.ndim >3:
+                        em_data_cube = np.sum(em_data_cube,axis=2)
+
+                    print(em_data.shape)
                     em_data_cube = np.transpose(em_data_cube, axes=(1, 2, 0))
                     if index == 0:
                         image_height, num_slits, num_logts = np.shape(em_data_cube)

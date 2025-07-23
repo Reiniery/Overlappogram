@@ -61,13 +61,6 @@ class Inverter:
         self._n_iter: np.ndarray | None = None
         
         self._thread_count_lock = Lock()
-    #    ###updated
-    #     if response_cube.data.ndim > 3: # RSP Funcs, FA, T, WVL
-    #         self.low_fip_response_data = NDCube(response_cube.data[0],wcs=response_cube.wcs, meta=response_cube.meta)
-    #         self.high_fip_response_data = NDCube(response_cube.data[1],wcs=response_cube.wcs, meta=response_cube.meta)
-
-            
-
      
         self._response_function, self._num_slits, self._num_deps = prepare_response_function(
             response_cube,
@@ -75,7 +68,7 @@ class Inverter:
             field_angle_range=field_angle_range,
             response_dependency_list=response_dependency_list,
         )
-
+        # Check if lowfip high fip - Rei Update
         self.lowfip_highfip_check = False
         if response_cube.data.ndim > 3: 
             self.lowfip_highfip_check = True
@@ -89,12 +82,12 @@ class Inverter:
         
             
         
-######################## REI EDIT
-         #check if mask data is recieved
+        ################ REI EDIT
+        #check if mask data is recieved
         self.em_mask =em_mask
         if self.em_mask is not None:
             print('Applying Mask')
-           #--------------Prepare em filter 
+            #--------------Prepare em filter 
             self.em_mask_whole=self.em_mask['filter']
             
             #self.em_mask_whole=self.em_mask['em_filter']
@@ -114,16 +107,15 @@ class Inverter:
                 self.em_mask_sub =  ndimage.zoom(np.array(self.em_mask_sub), scale_factors, order=1)
             #get field angles
             field_angle_list = np.array([a for (_, a) in response_cube.meta['field_angles']])    
-            self._em_mask,_,_ = prepare_emocci_filter(self.em_mask_sub,self._response_meta['temperatures']['logt']  , field_angle_list, self._field_angle_range,  np.array(self._solution_fov_width))
+            self._em_mask,_,_ = prepare_emocci_filter(self.em_mask_sub,self._response_meta['temperatures']['logt']  , field_angle_list, self._field_angle_range,  np.array(self._solution_fov_width), self.lowfip_highfip_check)
 
 
             #convert to binary mask - if prepare_emocci_filter has .sum(), needed 
             if np.any(self._em_mask >0.5):
                 self._em_mask= np.where(self._em_mask>0.5, 1,0)
-##########################################
+        ###################################
 
         self._progress_bar = None  # initialized in invert call
-
     @property
     def is_inverted(self) -> bool:
         return not any(
@@ -139,12 +131,12 @@ class Inverter:
         model = self._models[chunk_index]
         image_row = self._overlappogram.data[row_index, :]
         masked_response_function = self._response_function.copy()
-#######################apply response function mask - UPDATE ##########
+        ############### apply response function mask - UPDATE ##########
         if self.em_mask is not None:
             mask_row= self._em_mask[row_index,:].flatten()
             masked_response_function*= mask_row
+        ################# UPDATE END#################################
 
-######################### UPDATE END#################################
         if self._overlappogram.mask is not None:
             mask_row = self._overlappogram.mask[row_index, :]
             mask_pixels = np.where(mask_row == 0)
@@ -320,7 +312,7 @@ class Inverter:
         # initialize all results cubes
         self._overlappogram_height, self._overlappogram_width = self._overlappogram.data.shape
         
-        #low fip high fip check
+        #low fip high fip check - Rei
         if self.lowfip_highfip_check:
             self._em_data = np.zeros((self._overlappogram_height, self._num_slits,self._num_deps,2), dtype=np.float32)
         else:

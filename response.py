@@ -184,7 +184,7 @@ def prepare_response_function(
     return response_function.transpose(), num_slits, num_deps
 
 #needs update for lowfip high fip
-def prepare_emocci_filter(em_filter, dep_index_list, field_angle_list, field_angle_range, fov_width):
+def prepare_emocci_filter(em_filter, dep_index_list, field_angle_list, field_angle_range, fov_width, lowfiphighfip=False):
     num_deps,rsp_func_width,num_field_angles= em_filter.shape
     num_bins = len(dep_index_list)
     half_fov = divmod(fov_width, 2)
@@ -216,25 +216,72 @@ def prepare_emocci_filter(em_filter, dep_index_list, field_angle_list, field_ang
     begin_slit_index = center_slit[0] - half_fov[0] -(half_slits[0] - fov_width)
     end_slit_index = center_slit[0] + half_fov[0] +(half_slits[0] - fov_width)
 
-    em_mask=np.zeros((num_slits*num_bins,rsp_func_width),dtype=np.float32)
+    em_mask=np.zeros((num_slits*num_bins*2,rsp_func_width)) #(T*F*A, e)
+
     response_count=0
     
-    for dep_i in range(len(em_filter)):
-        slit_count=0
-        bin_mask = em_filter[dep_i] 
-        for slit_num in range(
-           center_slit[0] - (half_slits[0] * fov_width),
-            center_slit[0] + ((half_slits[0] * fov_width) + 1),
-            fov_width,
-        ):
-            if fov_width == 1:
-                em_mask[(num_deps * slit_count) + response_count, :] = bin_mask[:,slit_num]
-            else:
-                result = bin_mask[:, slit_num - half_fov[0]: slit_num + half_fov[0] ].mean(axis=1) #.sum(axis=1)
-                em_mask[(num_deps * slit_count) + response_count, :] = result
+    if lowfiphighfip:
+        for dep_idx in range(len(em_filter)):
+           
+
+            slit_count=0
+            bin_mask = em_filter[dep_idx] 
+            for slit_idx,slit_num in enumerate(range(
+            center_slit[0] - (half_slits[0] * fov_width),
+                center_slit[0] + ((half_slits[0] * fov_width) + 1),
+                fov_width,
+            )):
+                
+                num_select_slits= len(range(center_slit[0] - (half_slits[0] * fov_width),
+                center_slit[0] + ((half_slits[0] * fov_width) + 1),
+                fov_width))
+                out_idx=dep_idx * num_select_slits +slit_idx
+                out_idx_high = out_idx +num_deps * num_select_slits    
+
+
+
+                
+                if fov_width == 1:
+                    em_mask[(num_deps * slit_count) + response_count, :] = bin_mask[:,slit_num]
+                else:
+                    result = bin_mask[:, slit_num - half_fov[0]: slit_num + half_fov[0] ].mean(axis=1) #.sum(axis=1)
+                    
+                    em_mask[out_idx, :] = result
+                    em_mask[out_idx_high]=result
+            
+                slit_count+=1
+            
+            response_count+=1
+
+
+
+
         
-            slit_count+=1
-          
-        response_count+=1
+       
+
+    else:
+        em_mask=np.zeros((num_slits*num_bins,rsp_func_width),dtype=np.float32)
+        response_count=0
+        
+        for dep_idx in range(len(em_filter)):
+            slit_count=0
+            bin_mask = em_filter[dep_idx] 
+            for slit_num in range(
+            center_slit[0] - (half_slits[0] * fov_width),
+                center_slit[0] + ((half_slits[0] * fov_width) + 1),
+                fov_width,
+            ):
+                if fov_width == 1:
+                    em_mask[(num_deps * slit_count) + response_count, :] = bin_mask[:,slit_num]
+                else:
+                    result = bin_mask[:, slit_num - half_fov[0]: slit_num + half_fov[0] ].mean(axis=1) #.sum(axis=1)
+                    em_mask[(num_deps * slit_count) + response_count, :] = result
+            
+                slit_count+=1
+            
+            response_count+=1
+    
+    plt.imshow(em_mask.T,origin='lower')
+    plt.show()
     
     return em_mask.transpose(),num_slits, num_deps
