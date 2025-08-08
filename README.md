@@ -4,19 +4,22 @@
 
 ## Response Mask
 optional: 
-[paths]
-...
-em_mask = 'file_name'
-...
+<br>
+[paths] <br> 
+... <br>
+em_mask = 'file_name'<br>
+... 
 
 
 
 ### Multiple Response functions
 
-If there are multiple response functions, such as low fip or high fip, use 
+If there are multiple response functions, such as low fip or high fip, use <br>
 [paths]
+<br>
+...<br>
+response=['RSP_File1','RSP_file2']<br>
 ...
-response=['RSP_File1','RSP_file2']
-...
+
 
 
