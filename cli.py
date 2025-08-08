@@ -17,11 +17,9 @@ from overlappogram.io import load_overlappogram  # noqa: E402
 from overlappogram.io import save_em_cube  # noqa: E402
 from overlappogram.io import save_spectral_cube  # noqa: E402
 from overlappogram.io import load_response_cube, save_prediction,load_em_filter  # noqa: E402 || Rei Added load_em_filter
-
-
-
 from overlappogram.spectral import create_spectrally_pure_images  # noqa: E402
-
+from ndcube import NDCube
+import numpy as np
 
 
 
@@ -44,17 +42,20 @@ def unfold(config):
     overlappogram = load_overlappogram(config["paths"]["overlappogram"],
                                        config["paths"]["weights"] if 'weights' in config['paths'] else None,
                                        config["paths"]["mask"] if 'mask' in config['paths'] else None)
-    if 'lowfip' and 'highfip' not in config['paths']:
+    # Check Type of Response Functions -- by Rei
+    if isinstance(config["paths"]["response"], str):
         response_cube = load_response_cube(config["paths"]["response"] )
     else:
-        low_fip_response_cube=load_response_cube(config["paths"]["lowfip"])
-        high_fip_response_cube=load_response_cube(config["paths"]["highfip"])
 
-        if low_fip_response_cube and high_fip_response_cube is not None:
-            from ndcube import NDCube
-            import numpy as np
-            new_response_data=np.stack([low_fip_response_cube.data,high_fip_response_cube.data], axis=2)
-            response_cube=NDCube(new_response_data, wcs=low_fip_response_cube.wcs, meta=low_fip_response_cube.meta)
+        stack_list=[]
+        for rsp_path in config["paths"]["response"]:
+            rsp=load_response_cube(rsp_path)
+            stack_list.append(rsp.data)
+        
+        new_response_data=np.stack(np.array(stack_list), axis=2)
+    
+            
+        response_cube=NDCube(new_response_data, wcs=rsp.wcs, meta=rsp.meta)
     
     
 

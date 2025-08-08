@@ -69,9 +69,10 @@ class Inverter:
             response_dependency_list=response_dependency_list,
         )
         # Check if lowfip high fip - Rei Update
-        self.lowfip_highfip_check = False
+        self.stacked_RSP = False
         if response_cube.data.ndim > 3: 
-            self.lowfip_highfip_check = True
+            _,_,self.A,_= response_cube.data.shape
+            self.stacked_RSP = True
 
 
         self._response_meta = response_cube.meta
@@ -107,7 +108,7 @@ class Inverter:
                 self.em_mask_sub =  ndimage.zoom(np.array(self.em_mask_sub), scale_factors, order=1)
             #get field angles
             field_angle_list = np.array([a for (_, a) in response_cube.meta['field_angles']])    
-            self._em_mask,_,_ = prepare_emocci_filter(self.em_mask_sub,self._response_meta['temperatures']['logt']  , field_angle_list, self._field_angle_range,  np.array(self._solution_fov_width), self.lowfip_highfip_check)
+            self._em_mask,_,_ = prepare_emocci_filter(self.em_mask_sub,self._response_meta['temperatures']['logt']  , field_angle_list, self._field_angle_range,  np.array(self._solution_fov_width), self.stacked_RSP)
 
 
             #convert to binary mask - if prepare_emocci_filter has .sum(), needed 
@@ -212,7 +213,7 @@ class Inverter:
 
             #LOW FIP HIGH FIP CHECK-------- by Rei 
             if em.shape[0] > self._num_deps * self._num_slits:
-                em = em.reshape(2, self._num_deps, self._num_slits) #(A,T,F)
+                em = em.reshape(self.A, self._num_deps, self._num_slits) #(A,T,F)
                 em=em.transpose(2,1,0) # (F,T,A)
                 self._em_data[row_index] = em
             #-------------------------------
@@ -313,8 +314,8 @@ class Inverter:
         self._overlappogram_height, self._overlappogram_width = self._overlappogram.data.shape
         
         #low fip high fip check - Rei
-        if self.lowfip_highfip_check:
-            self._em_data = np.zeros((self._overlappogram_height, self._num_slits,self._num_deps,2), dtype=np.float32)
+        if self.stacked_RSP:
+            self._em_data = np.zeros((self._overlappogram_height, self._num_slits,self._num_deps,self.A), dtype=np.float32)
         else:
             self._em_data = np.zeros((self._overlappogram_height, self._num_slits,self._num_deps), dtype=np.float32)
 

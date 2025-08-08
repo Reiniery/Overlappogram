@@ -13,12 +13,12 @@ __all__ = ["load_overlappogram", "load_response_cube", "save_em_cube", "save_spe
 
 
 RESPONSE_HEADER_KEYS = ['DATE',
-                        #'VALUE',
-                        #'FIELDANG',
-                        #'RSP_DATE',
-                        #'DEPNAME',
-                        #'ABUNDANC',
-                        #'ELECDIST'
+                        'VALUE',
+                        'FIELDANG',
+                        'RSP_DATE',
+                        'DEPNAME',
+                        'ABUNDANC',
+                        'ELECDIST'
                         ]
 
 
